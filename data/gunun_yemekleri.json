@@ -1,0 +1,10 @@
+{
+  "_aciklama": "Her gün için menu.csv'deki id'leri yazın. Boş bırakılan günler otomatik seçilir.",
+  "pazartesi": ["mercimek_corbasi", "iskender_kebap", "pad_thai", "baklava"],
+  "sali": ["miso_corbasi", "ramen", "lazanya", "tiramisu"],
+  "carsamba": ["ezogelin_corbasi", "tavuk_kori", "karniyarik", "sutlac"],
+  "persembe": ["pho", "sushi", "spagetti_bolonez", "cheesecake"],
+  "cuma": ["mercimek_corbasi", "adana_kebap", "izgara_somon", "kunefe"],
+  "cumartesi": [],
+  "pazar": []
+}

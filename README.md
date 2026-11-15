@@ -1,82 +1,85 @@
-# 🍽️ Restoran Menü Chatbotu
+# 🍽️ Restaurant Menu Chatbot
 
-Müşterilere yemek önerisi, fiyat, kalori ve protein bilgisi veren Türkçe bir chatbot.
-**Ücretsizdir; API anahtarı veya internet bağlantısı gerektirmez.**
+**English** | [Türkçe](README.tr.md)
+
+A bilingual (English and Turkish) chatbot that answers customers' questions about dishes, prices, calories and protein.
+**Free to run: no API key and no internet connection needed.**
 
 ```
-Siz: Asya mutfağından ne önerirsiniz?
-Asistan: Asya mutfağından önerilerimiz 👨‍🍳:
-- Pad Thai — 400 ₺ · 640 kcal · 28 g protein
+> What do you recommend from Asian cuisine?
+Recommended Asian dishes 👨‍🍳:
+- Vegetable Fried Rice — 280 ₺ · 595 kcal · 16 g protein
 ...
 
-Siz: 250 gr tavuk kaç kalori?
-Asistan: Izgara Tavuk Göğsü – 250 g: yaklaşık 412 kcal ve 77.5 g protein.
+> How many calories in 250 g chicken?
+Grilled Chicken Breast – 250 g: about 412 kcal and 77.5 g protein.
 
-Siz: Bana python kodu yaz
-Asistan: Üzgünüm, bu konuda yetkin değilim; yalnızca menümüz, fiyatlarımız ve kaloriler
-hakkında yardımcı olabilirim. Size günün yemeklerini önerebilirim: ...
+> Write me python code
+Sorry, I can't help with that; I can only answer questions about our menu, prices and calories.
+Here are today's specials: ...
 ```
 
-## Neler yapabilir?
-- Yemek önerisi ve günün yemekleri
-- Mutfağa göre arama: Türk, Asya (Japon, Çin, Tay, Hint, Kore, Vietnam), Akdeniz (İtalyan, Yunan), Amerikan
-- Kategoriye göre arama: çorba, başlangıç, salata, ana yemek, tatlı
-- En ucuz / en pahalı / en hafif / en yüksek proteinli yemek
-- Bütçe (“300 TL'ye kadar”) ve kalori sınırı (“500 kalorinin altında”)
-- Vejetaryen seçenekler
-- Gramaja göre kalori ve protein (“100 gram baklava kaç kalori?”)
-- İki yemeği karşılaştırma (“sushi mi ramen mi?”)
-- Konu dışı her mesajı reddedip günün yemeklerini önerme
+## Features
+- Replies in the language of the message (English or Turkish)
+- Dish recommendations and today's specials
+- Search by cuisine: Turkish, Asian (Japanese, Chinese, Thai, Indian, Korean, Vietnamese), Mediterranean (Italian, Greek), American
+- Search by category: soup, starter, salad, main course, dessert
+- Cheapest, most expensive, lightest and highest-protein dishes
+- Budget ("under 300") and calorie limits ("under 500 calories")
+- Vegetarian options
+- Calories and protein for a given weight ("100 g baklava")
+- Compare two dishes ("sushi or ramen?")
+- Turns down every off-topic message and suggests today's specials instead
 
-## Kurulum
+## Installation
 ```bash
-git clone https://github.com/<kullanici-adi>/restaurant-chatbot.git
+git clone https://github.com/Tunz10/restaurant-chatbot.git
 cd restaurant-chatbot
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Çalıştırma
+## Usage
 ```bash
-streamlit run app.py      # web arayüzü
-python bot.py             # terminalde sohbet
-python test_chatbot.py    # testler
+streamlit run app.py      # web interface
+python bot.py             # chat in the terminal
+python test_chatbot.py    # tests
 ```
 
-## Nasıl çalışır?
-| Dosya | Görevi |
+## How it works
+| File | Purpose |
 |---|---|
-| `data/menu.csv` | Menü: fiyat, porsiyon gramajı, 100 g başına kalori ve protein |
-| `data/gunun_yemekleri.json` | Her gün için günün yemekleri (boş günler otomatik seçilir) |
-| `menu.py` | Menüyü okur; arama, sıralama, kalori ve protein hesabı yapar |
-| `bot.py` | Kural tabanlı chatbot: mesajı anlar, cevabı `menu.py` ile üretir |
-| `ollama_mod.py` | İsteğe bağlı yerel yapay zekâ modu |
-| `app.py` | Streamlit web arayüzü |
+| `data/menu.csv` | The menu: Turkish and English names, price, portion size, calories and protein per 100 g |
+| `data/gunun_yemekleri.json` | Today's dishes for each weekday (empty days are picked automatically) |
+| `menu.py` | Loads the menu; searching, sorting, calorie and protein calculation |
+| `bot.py` | Rule-based chatbot: detects the language, understands the message, answers using `menu.py` |
+| `ollama_mod.py` | Optional local AI mode |
+| `app.py` | Streamlit web interface with a TR/EN switch |
 
-Bütün sayılar (fiyat, kalori, protein, sıralama) koddan gelir, hiçbir sayı uydurulmaz.
-Bot anlamadığı ya da menüyle ilgisi olmayan her mesajı reddeder.
+Every number (price, calories, protein, ranking) comes from the code; nothing is made up.
+The bot turns down any message it doesn't understand or that isn't about the menu.
 
-### İsteğe bağlı: Ollama ile daha akıllı cevaplar (yine ücretsiz)
-Bilgisayarınızda [Ollama](https://ollama.com) çalışıyorsa, kuralların anlamadığı mesajlar yerel bir modele gönderilir:
+### Optional: smarter answers with Ollama (still free)
+If [Ollama](https://ollama.com) is running on your computer, messages the rules don't understand are sent to a local model:
 ```bash
 ollama pull qwen2.5:3b
-streamlit run app.py      # Ollama'yı otomatik algılar
+streamlit run app.py      # Ollama is detected automatically
 ```
-Model menüyü yalnızca fonksiyonlar (tool calling) üzerinden okuyabilir. Hiçbir fonksiyon çağırmadan cevap verirse,
-mesaj konu dışı sayılır. Ollama kapalıysa bot kural modunda çalışmaya devam eder.
-Farklı bir model için `OLLAMA_MODEL=qwen2.5:7b`, kapatmak için `USE_OLLAMA=0` kullanılabilir.
+The model can read the menu only through functions (tool calling). If it answers without calling a function,
+the message is treated as off-topic. If Ollama isn't running, the bot keeps working in rule mode.
+Use `OLLAMA_MODEL=qwen2.5:7b` for another model, or `USE_OLLAMA=0` to turn it off.
 
-## Kendi restoranınıza uyarlama
-1. `data/menu.csv` dosyasını kendi yemekleriniz ve fiyatlarınızla düzenleyin.
-   `diger_adlar` sütununa müşterilerin kullanabileceği diğer adları `|` ile ayırarak yazın.
-2. `data/gunun_yemekleri.json` dosyasına günün yemeklerinin `id` değerlerini yazın.
-3. Restoranın adını `bot.py` içindeki `RESTORAN_ADI` değişkeninden değiştirin.
+## Adapting it to your restaurant
+1. Edit `data/menu.csv` with your own dishes and prices. Put other names customers might use in the
+   `diger_adlar` column, separated by `|`.
+2. Put the `id` values of today's dishes in `data/gunun_yemekleri.json`.
+3. Change the restaurant name in `RESTORAN_ADI` in `bot.py`.
 
-## Veri hakkında not
-Menüdeki fiyatlar örnektir. Kalori ve protein değerleri,
-[USDA FoodData Central](https://fdc.nal.usda.gov/) ve yaygın besin referanslarına dayanan **yaklaşık** değerlerdir.
-Tarife ve porsiyona göre değişebilir. Tıbbi veya diyet tavsiyesi değildir.
+## About the data
+Menu prices are examples. Calorie and protein values are **approximate**, based on
+[USDA FoodData Central](https://fdc.nal.usda.gov/) and common nutrition references.
+They vary with recipe and portion and are not medical or dietary advice.
 
-## Lisans
+## License
 [MIT](LICENSE)

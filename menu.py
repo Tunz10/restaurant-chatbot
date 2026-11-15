@@ -1,7 +1,4 @@
-"""Menü verisi ve menü üzerinde çalışan fonksiyonlar.
-
-Fiyat, kalori, protein ve sıralama gibi sayısal işlerin hepsi burada yapılır.
-"""
+"""Menu data and lookups. All prices, calories and sorting are computed here."""
 import csv
 import datetime as dt
 import json
@@ -17,9 +14,27 @@ GUNUN_PATH = DATA / "gunun_yemekleri.json"
 GUNLER = ["pazartesi", "sali", "carsamba", "persembe", "cuma", "cumartesi", "pazar"]
 KATEGORI_SIRASI = ["Çorba", "Başlangıç", "Salata", "Ana Yemek", "Tatlı"]
 
+EN = {
+    "Çorba": "Soup", "Başlangıç": "Starter", "Salata": "Salad", "Ana Yemek": "Main course", "Tatlı": "Dessert",
+    "Türk": "Turkish", "Asya": "Asian", "Akdeniz": "Mediterranean", "Amerikan": "American",
+    "Japon": "Japanese", "Çin": "Chinese", "Tay": "Thai", "Hint": "Indian", "Kore": "Korean",
+    "Vietnam": "Vietnamese", "İtalyan": "Italian", "Yunan": "Greek",
+}
+
+
+def cevir(deger: str, dil: str) -> str:
+    return EN.get(deger, deger) if dil == "en" else deger
+
+
+def ad(r: dict, dil: str) -> str:
+    return r["ad_en"] if dil == "en" else r["ad"]
+
+
+def icerik(r: dict, dil: str) -> str:
+    return r["icerik_en"] if dil == "en" else r["icerik"]
+
 
 def normalize(text: str) -> str:
-    """Küçük harf, Türkçe karakterleri sadeleştir, noktalama işaretlerini boşluk yap."""
     text = str(text).replace("I", "ı").replace("İ", "i").lower().replace("ı", "i")
     text = unicodedata.normalize("NFKD", text)
     text = "".join(c for c in text if not unicodedata.combining(c))
@@ -38,7 +53,8 @@ def load_menu(path: Path = MENU_PATH):
         r["vejetaryen"] = r["vejetaryen"].strip().lower() == "evet"
         r["kalori"] = round(r["kalori_100g"] * r["porsiyon_gr"] / 100)
         r["protein"] = round(r["protein_100g"] * r["porsiyon_gr"] / 100)
-        adlar = [r["ad"], re.sub(r"\(.*?\)", "", r["ad"]), r["id"].replace("_", " ")]
+        adlar = [r["ad"], r["ad_en"], r["id"].replace("_", " ")]
+        adlar += [re.sub(r"\(.*?\)", "", a) for a in (r["ad"], r["ad_en"])]
         adlar += [a for a in r["diger_adlar"].split("|") if a]
         r["_adlar"] = sorted({normalize(a) for a in adlar if normalize(a)}, key=len, reverse=True)
     return rows
@@ -49,7 +65,6 @@ BY_ID = {r["id"]: r for r in MENU}
 
 
 def besin(yemek: dict, gram=None) -> dict:
-    """Verilen gramaj için (yoksa porsiyon için) kalori ve protein hesaplar."""
     gram = gram or yemek["porsiyon_gr"]
     return {
         "gram": gram,
@@ -59,20 +74,19 @@ def besin(yemek: dict, gram=None) -> dict:
 
 
 def yemekleri_bul(metin: str):
-    """Mesajda geçen menü yemeklerini bulur (en uzun ad önce eşleşir)."""
+    """Dishes mentioned in the text, longest name matched first."""
     n = f" {normalize(metin)} "
-    adaylar = sorted(((ad, r) for r in MENU for ad in r["_adlar"]), key=lambda x: len(x[0]), reverse=True)
+    adaylar = sorted(((a, r) for r in MENU for a in r["_adlar"]), key=lambda x: len(x[0]), reverse=True)
     bulunan = []
-    for ad, r in adaylar:
-        if f" {ad} " in n and r not in bulunan:
+    for a, r in adaylar:
+        if f" {a} " in n and r not in bulunan:
             bulunan.append(r)
-            n = n.replace(f" {ad} ", " # ")  # aynı kelime ikinci kez eşleşmesin
+            n = n.replace(f" {a} ", " # ")
     return bulunan
 
 
 def ara(mutfak=None, mutfak_grubu=None, kategori=None, max_fiyat=None, max_kalori=None,
         vejetaryen=False, sirala="fiyat_artan"):
-    """Menüyü filtreler ve sıralar."""
     rows = MENU
     if mutfak:
         rows = [r for r in rows if r["mutfak"] == mutfak]
@@ -98,7 +112,7 @@ def ara(mutfak=None, mutfak_grubu=None, kategori=None, max_fiyat=None, max_kalor
 
 
 def gunun_yemekleri(tarih=None):
-    """data/gunun_yemekleri.json'daki günün listesi; yoksa tarihe göre sabit bir seçim."""
+    """Today's dishes from gunun_yemekleri.json, or a fixed pick based on the date."""
     tarih = tarih or dt.date.today()
     gun = GUNLER[tarih.weekday()]
     secim = []
@@ -106,7 +120,7 @@ def gunun_yemekleri(tarih=None):
         plan = json.loads(GUNUN_PATH.read_text(encoding="utf-8"))
         secim = [BY_ID[i] for i in plan.get(gun, []) if i in BY_ID]
     if not secim:
-        rnd = random.Random(tarih.toordinal())  # aynı gün hep aynı seçim
+        rnd = random.Random(tarih.toordinal())
         for kat in ("Çorba", "Ana Yemek", "Ana Yemek", "Tatlı"):
             secim.append(rnd.choice([r for r in MENU if r["kategori"] == kat and r not in secim]))
     return secim

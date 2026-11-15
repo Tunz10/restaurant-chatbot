@@ -1,54 +1,59 @@
-"""İsteğe bağlı Ollama modu (ücretsiz, bilgisayarınızda yerel çalışır).
+"""Optional local Ollama mode (free).
 
-Kuralların anlamadığı mesajlar yerel modele gönderilir. Model sayıları kendisi
-uydurmaz; menüyü yalnızca aşağıdaki fonksiyonlarla (tool calling) okuyabilir.
-Model hiçbir fonksiyon çağırmadan cevap verirse mesaj konu dışı sayılır.
+The model reads the menu only through the functions below (tool calling).
+If it answers without calling a function, the message is treated as off-topic.
 
-Kurulum:  https://ollama.com  ->  ollama pull qwen2.5:3b
-Kapatmak: USE_OLLAMA=0 python bot.py
+Setup: https://ollama.com, then `ollama pull qwen2.5:3b`. Disable with USE_OLLAMA=0.
 """
 import json
 import os
 import urllib.request
 
-from menu import ara, besin, gunun_yemekleri, yemekleri_bul
+from menu import ad, ara, besin, cevir, gunun_yemekleri, icerik, yemekleri_bul
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:3b")
 
-SYSTEM = """Sen bir restoranın menü asistanısın. Türkçe, kısa ve samimi cevap ver.
-Sadece menüdeki yemekler, fiyatlar, kaloriler ve öneriler hakkında konuş.
-Yemek, fiyat veya kalori bilgisini ASLA kendin uydurma; her zaman fonksiyonları çağır.
-Soru menüyle ilgili değilse hiçbir fonksiyon çağırma ve sadece KONU_DISI yaz."""
-
-
-def _ozet(r):
-    return {"ad": r["ad"], "mutfak": r["mutfak"], "kategori": r["kategori"], "fiyat_tl": r["fiyat_tl"],
-            "kalori": r["kalori"], "protein_g": r["protein"], "vejetaryen": r["vejetaryen"]}
-
-
-def _menu_ara(mutfak_grubu=None, kategori=None, max_fiyat=None, vejetaryen=False, sirala="fiyat_artan"):
-    return [_ozet(r) for r in ara(mutfak_grubu=mutfak_grubu, kategori=kategori, max_fiyat=max_fiyat,
-                                  vejetaryen=bool(vejetaryen), sirala=sirala)[:8]]
-
-
-def _yemek_detay(ad, gram=None):
-    bulunan = yemekleri_bul(ad)
-    if not bulunan:
-        return {"hata": "Bu yemek menüde yok."}
-    r = bulunan[0]
-    return {**_ozet(r), "icerik": r["icerik"], **besin(r, int(gram) if gram else None)}
-
-
-FONKSIYONLAR = {
-    "menu_ara": _menu_ara,
-    "yemek_detay": _yemek_detay,
-    "gunun_yemekleri": lambda: [_ozet(r) for r in gunun_yemekleri()],
+SYSTEM = {
+    "tr": "Sen bir restoranın menü asistanısın. Türkçe, kısa ve samimi cevap ver. "
+          "Sadece menüdeki yemekler, fiyatlar, kaloriler ve öneriler hakkında konuş. "
+          "Yemek, fiyat veya kalori bilgisini asla kendin uydurma; her zaman fonksiyonları çağır. "
+          "Soru menüyle ilgili değilse hiçbir fonksiyon çağırma ve sadece KONU_DISI yaz.",
+    "en": "You are a restaurant's menu assistant. Reply in English, briefly and warmly. "
+          "Only talk about the dishes on the menu, prices, calories and recommendations. "
+          "Never make up dishes, prices or calories; always call the functions. "
+          "If the question is not about the menu, call no function and reply only KONU_DISI.",
 }
+
+
+def _ozet(r, dil):
+    return {"ad": ad(r, dil), "mutfak": cevir(r["mutfak"], dil), "kategori": cevir(r["kategori"], dil),
+            "fiyat_tl": r["fiyat_tl"], "kalori": r["kalori"], "protein_g": r["protein"], "vejetaryen": r["vejetaryen"]}
+
+
+def _fonksiyonlar(dil):
+    def menu_ara(mutfak_grubu=None, kategori=None, max_fiyat=None, vejetaryen=False, sirala="fiyat_artan"):
+        rows = ara(mutfak_grubu=mutfak_grubu, kategori=kategori, max_fiyat=max_fiyat,
+                   vejetaryen=bool(vejetaryen), sirala=sirala)
+        return [_ozet(r, dil) for r in rows[:8]]
+
+    def yemek_detay(ad_, gram=None):
+        bulunan = yemekleri_bul(ad_)
+        if not bulunan:
+            return {"hata": "not on the menu"}
+        r = bulunan[0]
+        return {**_ozet(r, dil), "icerik": icerik(r, dil), **besin(r, int(gram) if gram else None)}
+
+    return {
+        "menu_ara": menu_ara,
+        "yemek_detay": lambda ad=None, gram=None: yemek_detay(ad or "", gram),
+        "gunun_yemekleri": lambda: [_ozet(r, dil) for r in gunun_yemekleri()],
+    }
+
 
 TOOLS = [
     {"type": "function", "function": {
-        "name": "menu_ara", "description": "Menüde filtreleyerek ve sıralayarak yemek arar.",
+        "name": "menu_ara", "description": "Search the menu with filters and sorting.",
         "parameters": {"type": "object", "properties": {
             "mutfak_grubu": {"type": "string", "enum": ["Türk", "Asya", "Akdeniz", "Amerikan"]},
             "kategori": {"type": "string", "enum": ["Çorba", "Başlangıç", "Salata", "Ana Yemek", "Tatlı"]},
@@ -57,11 +62,11 @@ TOOLS = [
             "sirala": {"type": "string", "enum": ["fiyat_artan", "fiyat_azalan", "kalori_artan", "protein_azalan"]},
         }}}},
     {"type": "function", "function": {
-        "name": "yemek_detay", "description": "Bir yemeğin fiyat, içerik, kalori ve protein bilgisi.",
+        "name": "yemek_detay", "description": "Price, ingredients, calories and protein of one dish.",
         "parameters": {"type": "object", "properties": {
             "ad": {"type": "string"}, "gram": {"type": "integer"}}, "required": ["ad"]}}},
     {"type": "function", "function": {
-        "name": "gunun_yemekleri", "description": "Bugünün önerilen yemekleri.",
+        "name": "gunun_yemekleri", "description": "Today's recommended dishes.",
         "parameters": {"type": "object", "properties": {}}}},
 ]
 
@@ -78,9 +83,10 @@ class OllamaAsistan:
         self.model = model
         self._post = post
 
-    def cevapla(self, mesaj: str):
-        """Cevap metni döndürür; konu dışıysa veya hata olursa None döndürür."""
-        messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": mesaj}]
+    def cevapla(self, mesaj: str, dil: str = "tr"):
+        """Returns the answer text, or None if off-topic or on error."""
+        fonksiyonlar = _fonksiyonlar(dil)
+        messages = [{"role": "system", "content": SYSTEM[dil]}, {"role": "user", "content": mesaj}]
         try:
             for adim in range(4):
                 yanit = self._post("/api/chat", {"model": self.model, "messages": messages, "tools": TOOLS,
@@ -88,17 +94,15 @@ class OllamaAsistan:
                 msg = yanit["message"]
                 cagrilar = msg.get("tool_calls") or []
                 if not cagrilar:
-                    icerik = (msg.get("content") or "").strip()
-                    # Hiç fonksiyon çağırmadan verilen cevap = konu dışı (uydurma riskini de önler)
-                    if adim == 0 or not icerik or "KONU_DISI" in icerik:
+                    metin = (msg.get("content") or "").strip()
+                    if adim == 0 or not metin or "KONU_DISI" in metin:
                         return None
-                    return icerik
+                    return metin
                 messages.append(msg)
                 for c in cagrilar:
-                    fn = FONKSIYONLAR.get(c["function"]["name"])
-                    args = c["function"].get("arguments") or {}
+                    fn = fonksiyonlar.get(c["function"]["name"])
                     try:
-                        sonuc = fn(**args) if fn else {"hata": "bilinmeyen fonksiyon"}
+                        sonuc = fn(**(c["function"].get("arguments") or {})) if fn else {"hata": "unknown function"}
                     except Exception as e:
                         sonuc = {"hata": str(e)}
                     messages.append({"role": "tool", "content": json.dumps(sonuc, ensure_ascii=False)})
@@ -108,12 +112,11 @@ class OllamaAsistan:
 
 
 def ollama_baglan():
-    """Ollama çalışıyor ve model yüklüyse asistanı döndürür, değilse None."""
+    """Returns an assistant if Ollama is running with the model installed, otherwise None."""
     if os.environ.get("USE_OLLAMA", "1") == "0":
         return None
     try:
-        req = urllib.request.Request(OLLAMA_URL + "/api/tags")
-        with urllib.request.urlopen(req, timeout=1) as r:
+        with urllib.request.urlopen(OLLAMA_URL + "/api/tags", timeout=1) as r:
             modeller = [m["name"] for m in json.loads(r.read()).get("models", [])]
     except Exception:
         return None
